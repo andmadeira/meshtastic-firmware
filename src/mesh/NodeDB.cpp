@@ -1723,6 +1723,17 @@ void NodeDB::updatePosition(uint32_t nodeId, const meshtastic_Position &p, RxSou
             info->position.time = tmp_time;
     }
     info->has_position = true;
+
+    if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE) {
+        std::string target = info->user.long_name;
+        std::vector<std::string> stringVec = {"-GT-", "-GW-", "-R-", "-RL-"};
+        bool found = std::any_of(stringVec.begin(), stringVec.end(),
+                                 [&target](const std::string &s) { return target.find(s) != std::string::npos; });
+
+        if (found)
+            info->is_favorite = true;
+    }
+
     updateGUIforNode = info;
     notifyObservers(true); // Force an update whether or not our node counts have changed
 }
@@ -1746,6 +1757,17 @@ void NodeDB::updateTelemetry(uint32_t nodeId, const meshtastic_Telemetry &t, RxS
     }
     info->device_metrics = t.variant.device_metrics;
     info->has_device_metrics = true;
+
+    if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE) {
+        std::string target = info->user.long_name;
+        std::vector<std::string> stringVec = {"-GT-", "-GW-", "-R-", "-RL-"};
+        bool found = std::any_of(stringVec.begin(), stringVec.end(),
+                                 [&target](const std::string &s) { return target.find(s) != std::string::npos; });
+
+        if (found)
+            info->is_favorite = true;
+    }
+
     updateGUIforNode = info;
     notifyObservers(true); // Force an update whether or not our node counts have changed
 }
@@ -1794,7 +1816,17 @@ void NodeDB::addFromContact(meshtastic_SharedContact contact)
             // without the user doing so deliberately. We don't normally expect users to use a CLIENT_BASE to send DMs or to add
             // contacts, but we should make sure it doesn't auto-favorite in case they do. Instead, as a workaround, we'll set
             // last_heard to now, so that the add_contact node doesn't immediately get evicted.
-            info->last_heard = getTime();
+
+            std::string target = info->user.long_name;
+            std::vector<std::string> stringVec = {"-GT-", "-GW-", "-R-", "-RL-"};
+            bool found = std::any_of(stringVec.begin(), stringVec.end(),
+                                     [&target](const std::string &s) { return target.find(s) != std::string::npos; });
+
+            if (found)
+                info->is_favorite = true;
+            else
+                info->last_heard = getTime();
+
         } else {
             // Normal case: set is_favorite to prevent expiration.
             // last_heard will remain as-is (or remain 0 if this entry wasn't in the nodeDB).
@@ -1873,6 +1905,16 @@ bool NodeDB::updateUser(uint32_t nodeId, meshtastic_User &p, uint8_t channelInde
     info->has_user = true;
 
     if (changed) {
+        if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE) {
+            std::string target = info->user.long_name;
+            std::vector<std::string> stringVec = {"-GT-", "-GW-", "-R-", "-RL-"};
+            bool found = std::any_of(stringVec.begin(), stringVec.end(),
+                                     [&target](const std::string &s) { return target.find(s) != std::string::npos; });
+
+            if (found)
+                info->is_favorite = true;
+        }
+
         updateGUIforNode = info;
         notifyObservers(true); // Force an update whether or not our node counts have changed
 
