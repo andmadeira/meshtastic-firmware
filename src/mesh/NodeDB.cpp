@@ -1724,16 +1724,6 @@ void NodeDB::updatePosition(uint32_t nodeId, const meshtastic_Position &p, RxSou
     }
     info->has_position = true;
 
-    if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE) {
-        std::string target = info->user.long_name;
-        std::vector<std::string> stringVec = {"-GT-", "-GW-", "-R-", "-RL-"};
-        bool found = std::any_of(stringVec.begin(), stringVec.end(),
-                                 [&target](const std::string &s) { return target.find(s) != std::string::npos; });
-
-        if (found)
-            info->is_favorite = true;
-    }
-
     updateGUIforNode = info;
     notifyObservers(true); // Force an update whether or not our node counts have changed
 }
@@ -1757,16 +1747,6 @@ void NodeDB::updateTelemetry(uint32_t nodeId, const meshtastic_Telemetry &t, RxS
     }
     info->device_metrics = t.variant.device_metrics;
     info->has_device_metrics = true;
-
-    if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE) {
-        std::string target = info->user.long_name;
-        std::vector<std::string> stringVec = {"-GT-", "-GW-", "-R-", "-RL-"};
-        bool found = std::any_of(stringVec.begin(), stringVec.end(),
-                                 [&target](const std::string &s) { return target.find(s) != std::string::npos; });
-
-        if (found)
-            info->is_favorite = true;
-    }
 
     updateGUIforNode = info;
     notifyObservers(true); // Force an update whether or not our node counts have changed
@@ -1905,16 +1885,6 @@ bool NodeDB::updateUser(uint32_t nodeId, meshtastic_User &p, uint8_t channelInde
     info->has_user = true;
 
     if (changed) {
-        if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE) {
-            std::string target = info->user.long_name;
-            std::vector<std::string> stringVec = {"-GT-", "-GW-", "-R-", "-RL-"};
-            bool found = std::any_of(stringVec.begin(), stringVec.end(),
-                                     [&target](const std::string &s) { return target.find(s) != std::string::npos; });
-
-            if (found)
-                info->is_favorite = true;
-        }
-
         updateGUIforNode = info;
         notifyObservers(true); // Force an update whether or not our node counts have changed
 
@@ -1962,6 +1932,20 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
             info->has_hops_away = true;
             info->hops_away = hopsAway;
         }
+
+        // Add node as favorite if packet was a direct reception via radio from a Gate, GateWay, Router, or RouterLate
+        if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE && hopsAway == 0 && !mp.via_mqtt) {
+            std::string target = info->user.long_name;
+            std::vector<std::string> stringVec = {"-GT-", "-GW-", "-R-", "-RL-"};
+            bool found = std::any_of(stringVec.begin(), stringVec.end(),
+                                     [&target](const std::string &s) { return target.find(s) != std::string::npos; });
+
+            if (found) {
+                set_favorite(true, info->num);
+                return;
+            }
+        }
+
         sortMeshDB();
     }
 }
