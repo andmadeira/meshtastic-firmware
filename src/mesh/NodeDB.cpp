@@ -1923,16 +1923,13 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
         }
 
         // Add node as favorite if packet was a direct reception via radio from a Gate, GateWay, Router, or RouterLate
-        if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE && hopsAway == 0 && !mp.via_mqtt) {
-            std::string target = info->user.long_name;
-            std::vector<std::string> stringVec = {"-GT-", "-GW-", "-R-", "-RL-"};
-            bool found = std::any_of(stringVec.begin(), stringVec.end(),
-                                     [&target](const std::string &s) { return target.find(s) != std::string::npos; });
-
-            if (found) {
-                set_favorite(true, info->num);
-                return;
-            }
+        if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE &&
+            (info->user.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE ||
+             info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER ||
+             info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER_LATE) &&
+            mp.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA && hopsAway == 0 && !mp.via_mqtt) {
+            set_favorite(true, info->num);
+            return;
         }
 
         sortMeshDB();
