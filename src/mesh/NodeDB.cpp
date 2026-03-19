@@ -1794,7 +1794,6 @@ void NodeDB::addFromContact(meshtastic_SharedContact contact)
             // without the user doing so deliberately. We don't normally expect users to use a CLIENT_BASE to send DMs or to add
             // contacts, but we should make sure it doesn't auto-favorite in case they do. Instead, as a workaround, we'll set
             // last_heard to now, so that the add_contact node doesn't immediately get evicted.
-
             info->last_heard = getTime();
         } else {
             // Normal case: set is_favorite to prevent expiration.
@@ -1928,8 +1927,9 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
              info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER ||
              info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER_LATE) &&
             mp.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA && hopsAway == 0 && !mp.via_mqtt) {
+            LOG_DEBUG("Set %s as favorite", info->user.short_name);
             set_favorite(true, info->num);
-            return;
+            return; // no need to sort again - done already inside set_favorite()
         }
 
         sortMeshDB();
