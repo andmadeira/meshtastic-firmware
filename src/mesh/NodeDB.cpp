@@ -1966,7 +1966,7 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
              info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER ||
              info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER_LATE) &&
             !info->is_favorite && mp.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA &&
-            hopsAway == 0 && !mp.via_mqtt) {
+            hopsAway == 0) {
             LOG_DEBUG("Set %s as favorite", info->user.short_name);
             info->is_favorite = true;
             sortMeshDB();
