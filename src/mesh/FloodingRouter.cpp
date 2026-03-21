@@ -91,6 +91,7 @@ void FloodingRouter::reprocessPacket(const meshtastic_MeshPacket *p)
 {
     if (nodeDB)
         nodeDB->updateFrom(*p);
+
 #if !MESHTASTIC_EXCLUDE_TRACEROUTE
     if (traceRouteModule && p->which_payload_variant != meshtastic_MeshPacket_decoded_tag) {
         // If we got a packet that is not decoded, try to decode it so we can check for traceroute.
@@ -108,8 +109,9 @@ void FloodingRouter::reprocessPacket(const meshtastic_MeshPacket *p)
     }
 
     if (traceRouteModule && p->which_payload_variant == meshtastic_MeshPacket_decoded_tag &&
-        p->decoded.portnum == meshtastic_PortNum_TRACEROUTE_APP)
+        p->decoded.portnum == meshtastic_PortNum_TRACEROUTE_APP) {
         traceRouteModule->processUpgradedPacket(*p);
+    }
 #endif
 }
 
