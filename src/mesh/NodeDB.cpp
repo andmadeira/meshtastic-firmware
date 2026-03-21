@@ -1961,17 +1961,25 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
         }
 
         // Add node as favorite if packet was a direct reception via radio from a Gate, GateWay, Router, or RouterLate
-        if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE &&
-            (info->user.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE ||
-             info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER ||
-             info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER_LATE) &&
-            !info->is_favorite && mp.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA &&
-            hopsAway == 0) {
-            LOG_DEBUG("Set %s as favorite", info->user.short_name);
-            info->is_favorite = true;
-            sortMeshDB();
-            saveNodeDatabaseToDisk();
-            return;
+        if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE) {
+            if (info->user.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE ||
+                info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER ||
+                info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER_LATE) {
+                LOG_DEBUG("I am a CLIENT_BASE and I got a packet from %i, which is a %s", info->num, info->user.role);
+                if (mp.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA) {
+                    LOG_DEBUG("I received the packet from %i via LoRa with %i hops", info->num, hopsAway);
+                    if (hopsAway == 0) {
+                        if (!info->is_favorite) {
+                            LOG_DEBUG("%i is not a favorite", info->num);
+                            LOG_DEBUG("Set %s as favorite", info->user.short_name);
+                            info->is_favorite = true;
+                            sortMeshDB();
+                            saveNodeDatabaseToDisk();
+                            return;
+                        }
+                    }
+                }
+            }
         }
 
         sortMeshDB();
@@ -2040,8 +2048,8 @@ bool NodeDB::isFromOrToFavoritedNode(const meshtastic_MeshPacket &p)
         if (seenFrom && seenTo)
             return false; // we've seen both, and neither is a favorite, so we can stop searching early
 
-        // Note: if we knew that sortMeshDB was always called after any change to is_favorite, we could exit early after searching
-        // all favorited nodes first.
+        // Note: if we knew that sortMeshDB was always called after any change to is_favorite, we could exit early after
+        // searching all favorited nodes first.
     }
 
     return false;
