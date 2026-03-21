@@ -1961,24 +1961,16 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
         }
 
         // Add node as favorite if packet was a direct reception via radio from a Gate, GateWay, Router, or RouterLate
-        if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE) {
+        if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE && !info->is_favorite && info->has_user &&
+            mp.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA && hopsAway == 0) {
             if (info->user.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE ||
                 info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER ||
                 info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER_LATE) {
-                LOG_DEBUG("I am a CLIENT_BASE and I got a packet from %i, which is a %s", info->num, info->user.role);
-                if (mp.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA) {
-                    LOG_DEBUG("I received the packet from %i via LoRa with %i hops", info->num, hopsAway);
-                    if (hopsAway == 0) {
-                        if (!info->is_favorite) {
-                            LOG_DEBUG("%i is not a favorite", info->num);
-                            LOG_DEBUG("Set %s as favorite", info->user.short_name);
-                            info->is_favorite = true;
-                            sortMeshDB();
-                            saveNodeDatabaseToDisk();
-                            return;
-                        }
-                    }
-                }
+                LOG_DEBUG("Set %i as favorite", info->num);
+                info->is_favorite = true;
+                sortMeshDB();
+                saveNodeDatabaseToDisk();
+                return;
             }
         }
 
