@@ -1920,6 +1920,21 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
             info->has_hops_away = true;
             info->hops_away = hopsAway;
         }
+
+        // Add node as favorite if packet was a direct reception via radio from a Gate, GateWay, Router, or RouterLate
+        if (config.device.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE && !info->is_favorite && info->has_user &&
+            mp.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA && hopsAway == 0) {
+            if (info->user.role == meshtastic_Config_DeviceConfig_Role_CLIENT_BASE ||
+                info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER ||
+                info->user.role == meshtastic_Config_DeviceConfig_Role_ROUTER_LATE) {
+                LOG_DEBUG("Set 0x%x as favorite", mp.from);
+                info->is_favorite = true;
+                sortMeshDB();
+                saveNodeDatabaseToDisk();
+                return;
+            }
+        }
+
         sortMeshDB();
     }
 }
