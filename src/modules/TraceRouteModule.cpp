@@ -137,8 +137,12 @@ void TraceRouteModule::alterReceivedProtobuf(meshtastic_MeshPacket &p, meshtasti
     // Insert unknown hops if necessary
     insertUnknownHops(p, r, !incoming.request_id);
 
+    float rx_snr = p.rx_snr;
+    if (!p.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA)
+        rx_snr = 127;
+
     // Append ID and SNR. If the last hop is to us, we only need to append the SNR
-    appendMyIDandSNR(r, p.rx_snr, !incoming.request_id, isToUs(&p));
+    appendMyIDandSNR(r, rx_snr, !incoming.request_id, isToUs(&p));
     if (!incoming.request_id)
         printRoute(r, p.from, p.to, true);
     else
