@@ -137,12 +137,8 @@ void TraceRouteModule::alterReceivedProtobuf(meshtastic_MeshPacket &p, meshtasti
     // Insert unknown hops if necessary
     insertUnknownHops(p, r, !incoming.request_id);
 
-    float rx_snr = p.rx_snr;
-    if (p.transport_mechanism != meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA)
-        rx_snr = INT8_MAX / 4.0f;
-
     // Append ID and SNR. If the last hop is to us, we only need to append the SNR
-    appendMyIDandSNR(r, rx_snr, !incoming.request_id, isToUs(&p));
+    appendMyIDandSNR(r, p.rx_snr, !incoming.request_id, isToUs(&p));
     if (!incoming.request_id)
         printRoute(r, p.from, p.to, true);
     else
@@ -201,9 +197,11 @@ void TraceRouteModule::alterReceivedProtobuf(meshtastic_MeshPacket &p, meshtasti
                     result += " > ";
                     const char *name = getNodeName(r->route[i]);
                     float snr =
-                        (i < r->snr_towards_count && r->snr_towards[i] != INT8_MAX) ? ((float)r->snr_towards[i] / 4.0f) : 0.0f;
+                        (i < r->snr_towards_count && r->snr_towards[i] != INT8_MIN) ? ((float)r->snr_towards[i] / 4.0f) : 0.0f;
                     result += name;
-                    if (snr != 0.0f) {
+                    if (snr == (float)INT8_MAX / 4.0f) {
+                        result += "(via MQTT)";
+                    } else if (snr != 0.0f) {
                         result += "(";
                         result += String(snr, 1);
                         result += "dB)";
@@ -211,7 +209,7 @@ void TraceRouteModule::alterReceivedProtobuf(meshtastic_MeshPacket &p, meshtasti
                 }
                 result += " > ";
                 result += getNodeName(tracingNode);
-                if (r->snr_towards_count > 0 && r->snr_towards[r->snr_towards_count - 1] != INT8_MAX) {
+                if (r->snr_towards_count > 0 && r->snr_towards[r->snr_towards_count - 1] != INT8_MIN) {
                     result += "(";
                     result += String((float)r->snr_towards[r->snr_towards_count - 1] / 4.0f, 1);
                     result += "dB)";
@@ -222,7 +220,9 @@ void TraceRouteModule::alterReceivedProtobuf(meshtastic_MeshPacket &p, meshtasti
                 result += getNodeName(nodeDB->getNodeNum());
                 result += " > ";
                 result += getNodeName(tracingNode);
-                if (r->snr_towards_count > 0 && r->snr_towards[0] != INT8_MAX) {
+                if (r->snr_towards_count > 0 && r->snr_towards[0] == INT8_MAX) {
+                    result += "(via MQTT)";
+                } else if (r->snr_towards_count > 0 && r->snr_towards[0] != INT8_MIN) {
                     result += "(";
                     result += String((float)r->snr_towards[0] / 4.0f, 1);
                     result += "dB)";
@@ -236,9 +236,11 @@ void TraceRouteModule::alterReceivedProtobuf(meshtastic_MeshPacket &p, meshtasti
                 for (int8_t i = r->route_back_count - 1; i >= 0; i--) {
                     result += " > ";
                     const char *name = getNodeName(r->route_back[i]);
-                    float snr = (i < r->snr_back_count && r->snr_back[i] != INT8_MAX) ? ((float)r->snr_back[i] / 4.0f) : 0.0f;
+                    float snr = (i < r->snr_back_count && r->snr_back[i] != INT8_MIN) ? ((float)r->snr_back[i] / 4.0f) : 0.0f;
                     result += name;
-                    if (snr != 0.0f) {
+                    if (snr == (float)INT8_MAX / 4.0f) {
+                        result += "(via MQTT)";
+                    } else if (snr != 0.0f) {
                         result += "(";
                         result += String(snr, 1);
                         result += "dB)";
@@ -247,7 +249,7 @@ void TraceRouteModule::alterReceivedProtobuf(meshtastic_MeshPacket &p, meshtasti
                 // add initiator node
                 result += " > ";
                 result += getNodeName(nodeDB->getNodeNum());
-                if (r->snr_back_count > 0 && r->snr_back[r->snr_back_count - 1] != INT8_MAX) {
+                if (r->snr_back_count > 0 && r->snr_back[r->snr_back_count - 1] != INT8_MIN) {
                     result += "(";
                     result += String((float)r->snr_back[r->snr_back_count - 1] / 4.0f, 1);
                     result += "dB)";
@@ -257,7 +259,9 @@ void TraceRouteModule::alterReceivedProtobuf(meshtastic_MeshPacket &p, meshtasti
                 result += getNodeName(tracingNode);
                 result += " > ";
                 result += getNodeName(nodeDB->getNodeNum());
-                if (r->snr_back_count > 0 && r->snr_back[0] != INT8_MAX) {
+                if (r->snr_back_count > 0 && r->snr_back[0] == INT8_MAX) {
+                    result += "(via MQTT)";
+                } else if (r->snr_back_count > 0 && r->snr_back[0] != INT8_MIN) {
                     result += "(";
                     result += String((float)r->snr_back[0] / 4.0f, 1);
                     result += "dB)";
@@ -377,7 +381,7 @@ void TraceRouteModule::insertUnknownHops(meshtastic_MeshPacket &p, meshtastic_Ro
         diff = *route_count - *snr_count;
         for (int8_t i = 0; i < diff; i++) {
             if (*snr_count < ROUTE_SIZE) {
-                snr_list[*snr_count] = INT8_MIN; // This will represent an unknown SNR
+                snr_list[*snr_count] = INT8_MAX; // This will represent an unknown SNR
                 *snr_count += 1;
             }
         }
@@ -426,16 +430,19 @@ void TraceRouteModule::printRoute(meshtastic_RouteDiscovery *r, uint32_t origin,
     std::string route = "Route traced:\n";
     route += vformat("0x%x --> ", origin);
     for (uint8_t i = 0; i < r->route_count; i++) {
-        if (i < r->snr_towards_count && r->snr_towards[i] != INT8_MIN)
+        if (i < r->snr_towards_count && r->snr_towards[i] == INT8_MAX)
+            route += vformat("0x%x (via MQTT) --> ", r->route[i]);
+        else if (r->snr_towards_count > 0 && r->snr_towards[0] != INT8_MIN)
             route += vformat("0x%x (%.2fdB) --> ", r->route[i], (float)r->snr_towards[i] / 4);
         else
             route += vformat("0x%x (?dB) --> ", r->route[i]);
     }
     // If we are the destination, or it has already reached the destination, print it
     if (dest == nodeDB->getNodeNum() || !isTowardsDestination) {
-        if (r->snr_towards_count > 0 && r->snr_towards[r->snr_towards_count - 1] != INT8_MIN)
+        if (r->snr_towards_count > 0 && r->snr_towards[r->snr_towards_count - 1] == INT8_MAX)
+            route += vformat("0x%x (via MQTT) --> ", dest);
+        else if (r->snr_towards_count > 0 && r->snr_towards[r->snr_towards_count - 1] != INT8_MIN)
             route += vformat("0x%x (%.2fdB)", dest, (float)r->snr_towards[r->snr_towards_count - 1] / 4);
-
         else
             route += vformat("0x%x (?dB)", dest);
     } else
@@ -444,13 +451,17 @@ void TraceRouteModule::printRoute(meshtastic_RouteDiscovery *r, uint32_t origin,
     // If there's a route back (or we are the destination as then the route is complete), print it
     if (r->route_back_count > 0 || origin == nodeDB->getNodeNum()) {
         route += "\n";
-        if (r->snr_towards_count > 0 && origin == nodeDB->getNodeNum())
+        if (r->snr_towards_count > 0 && origin == nodeDB->getNodeNum() && r->snr_back[r->snr_back_count - 1] == INT8_MAX)
+            route += vformat("(via MQTT) 0x%x <-- ", origin);
+        else if (r->snr_towards_count > 0 && origin == nodeDB->getNodeNum())
             route += vformat("(%.2fdB) 0x%x <-- ", (float)r->snr_back[r->snr_back_count - 1] / 4, origin);
         else
             route += "...";
 
         for (int8_t i = r->route_back_count - 1; i >= 0; i--) {
-            if (i < r->snr_back_count && r->snr_back[i] != INT8_MIN)
+            if (i < r->snr_back_count && r->snr_back[i] == INT8_MAX)
+                route += vformat("(via MQTT) 0x%x <-- ", r->route_back[i]);
+            else if (i < r->snr_back_count && r->snr_back[i] != INT8_MIN)
                 route += vformat("(%.2fdB) 0x%x <-- ", (float)r->snr_back[i] / 4, r->route_back[i]);
             else
                 route += vformat("(?dB) 0x%x <-- ", r->route_back[i]);
