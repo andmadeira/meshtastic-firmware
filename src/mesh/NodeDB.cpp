@@ -1927,9 +1927,6 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
 
         // Add sender as favorite if:
         //  * we are not the sender;
-        //  * we are an infrastructure node (at least one of the following):
-        //      - we are a managed device;
-        //      - we are unmessagable;
         //  * our role is one of:
         //      - ROUTER;
         //      - ROUTER_LATE;
@@ -1944,11 +1941,8 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
         bool device_is_infra = false;
         if (config.has_device) {
             if (IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_CLIENT_BASE,
-                          meshtastic_Config_DeviceConfig_Role_ROUTER, meshtastic_Config_DeviceConfig_Role_ROUTER_LATE)) {
-                device_is_infra = config.device.is_managed;
-                if (!device_is_infra && owner.has_is_unmessagable)
-                    device_is_infra = owner.is_unmessagable;
-            }
+                          meshtastic_Config_DeviceConfig_Role_ROUTER, meshtastic_Config_DeviceConfig_Role_ROUTER_LATE))
+                device_is_infra = true;
         }
 
         bool sender_is_infra = false;
@@ -2032,8 +2026,8 @@ bool NodeDB::isFromOrToFavoritedNode(const meshtastic_MeshPacket &p)
         if (seenFrom && seenTo)
             return false; // we've seen both, and neither is a favorite, so we can stop searching early
 
-        // Note: if we knew that sortMeshDB was always called after any change to is_favorite, we could exit early after searching
-        // all favorited nodes first.
+        // Note: if we knew that sortMeshDB was always called after any change to is_favorite, we could exit early after
+        // searching all favorited nodes first.
     }
 
     return false;
