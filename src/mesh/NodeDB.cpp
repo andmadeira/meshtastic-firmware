@@ -1959,6 +1959,42 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
             info->has_hops_away = true;
             info->hops_away = hopsAway;
         }
+
+        // Add sender as favorite if:
+        //  * we are not the sender;
+        //  * our role is one of:
+        //      - ROUTER;
+        //      - ROUTER_LATE;
+        //      - CLIENT_BASE;
+        //  * the packet was a direct reception (0 hops);
+        //  * the packet was received via LoRa;
+        //  * the sender is not yet a favorite node;
+        //  * the sender role is one of:
+        //      - ROUTER;
+        //      - ROUTER_LATE;
+        //      - CLIENT_BASE.
+        bool device_is_infra = false;
+        if (config.has_device) {
+            if (IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_CLIENT_BASE,
+                          meshtastic_Config_DeviceConfig_Role_ROUTER, meshtastic_Config_DeviceConfig_Role_ROUTER_LATE))
+                device_is_infra = true;
+        }
+
+        bool sender_is_infra = false;
+        if (info->has_user)
+            sender_is_infra =
+                IS_ONE_OF(info->user.role, meshtastic_Config_DeviceConfig_Role_CLIENT_BASE,
+                          meshtastic_Config_DeviceConfig_Role_ROUTER, meshtastic_Config_DeviceConfig_Role_ROUTER_LATE);
+
+        if (!isFromUs(&mp) && mp.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA &&
+            hopsAway == 0 && device_is_infra && sender_is_infra && !info->is_favorite) {
+            LOG_DEBUG("Set 0x%x as favorite", mp.from);
+            info->is_favorite = true;
+            sortMeshDB();
+            saveNodeDatabaseToDisk();
+            return; // skip the final sortMeshDB
+        }
+
         sortMeshDB();
     }
 }
@@ -2025,8 +2061,8 @@ bool NodeDB::isFromOrToFavoritedNode(const meshtastic_MeshPacket &p)
         if (seenFrom && seenTo)
             return false; // we've seen both, and neither is a favorite, so we can stop searching early
 
-        // Note: if we knew that sortMeshDB was always called after any change to is_favorite, we could exit early after searching
-        // all favorited nodes first.
+        // Note: if we knew that sortMeshDB was always called after any change to is_favorite, we could exit early after
+        // searching all favorited nodes first.
     }
 
     return false;
