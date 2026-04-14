@@ -1959,6 +1959,48 @@ void NodeDB::updateFrom(const meshtastic_MeshPacket &mp)
             info->has_hops_away = true;
             info->hops_away = hopsAway;
         }
+
+        // Add sender as favorite if:
+        //  * we are not the sender;
+        //  * we are an infrastructure node (at least one of the following):
+        //      - we are a managed device;
+        //      - we are unmessagable;
+        //  * our role is one of:
+        //      - ROUTER;
+        //      - ROUTER_LATE;
+        //      - CLIENT_BASE;
+        //  * the packet was a direct reception (0 hops);
+        //  * the packet was received via LoRa;
+        //  * the sender is not yet a favorite node;
+        //  * the sender role is one of:
+        //      - ROUTER;
+        //      - ROUTER_LATE;
+        //      - CLIENT_BASE.
+        bool device_is_infra = false;
+        if (config.has_device) {
+            if (IS_ONE_OF(config.device.role, meshtastic_Config_DeviceConfig_Role_CLIENT_BASE,
+                          meshtastic_Config_DeviceConfig_Role_ROUTER, meshtastic_Config_DeviceConfig_Role_ROUTER_LATE)) {
+                device_is_infra = config.device.is_managed;
+                if (!device_is_infra && owner.has_is_unmessagable)
+                    device_is_infra = owner.is_unmessagable;
+            }
+        }
+
+        bool sender_is_infra = false;
+        if (info->has_user)
+            sender_is_infra =
+                IS_ONE_OF(info->user.role, meshtastic_Config_DeviceConfig_Role_CLIENT_BASE,
+                          meshtastic_Config_DeviceConfig_Role_ROUTER, meshtastic_Config_DeviceConfig_Role_ROUTER_LATE);
+
+        if (!isFromUs(&mp) && mp.transport_mechanism == meshtastic_MeshPacket_TransportMechanism_TRANSPORT_LORA &&
+            hopsAway == 0 && device_is_infra && sender_is_infra && !info->is_favorite) {
+            LOG_DEBUG("Set 0x%x as favorite", mp.from);
+            info->is_favorite = true;
+            sortMeshDB();
+            saveNodeDatabaseToDisk();
+            return; // skip the final sortMeshDB
+        }
+
         sortMeshDB();
     }
 }
