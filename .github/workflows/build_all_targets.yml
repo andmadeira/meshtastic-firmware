@@ -1,0 +1,80 @@
+name: Build All Targets
+concurrency:
+  group: ci-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+on:
+  # # Triggers the workflow on push but only for the main branches
+  push:
+    branches:
+      - master
+      - develop
+      - v2.7.*
+      - pioarduino # Remove when merged // use `feature/` in the future.
+      - event/*
+      - feature/*
+    paths-ignore:
+      - "**.md"
+      - version.properties
+      
+  workflow_dispatch:
+
+permissions: read-all
+
+jobs:
+  setup:
+    strategy:
+      fail-fast: true
+      matrix:
+        arch:
+          - all
+          - check
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: 3.x
+          cache: pip
+      - run: pip install -U platformio
+      - name: Generate matrix
+        id: jsonStep
+        run: |
+          if [[ "$GITHUB_HEAD_REF" == "" ]]; then
+            TARGETS=$(./bin/generate_ci_matrix.py ${{matrix.arch}})
+          else  
+            TARGETS=$(./bin/generate_ci_matrix.py ${{matrix.arch}} --level pr)
+          fi
+          echo "Name: $GITHUB_REF_NAME Base: $GITHUB_BASE_REF Ref: $GITHUB_REF"
+          echo "${{matrix.arch}}=$TARGETS" >> $GITHUB_OUTPUT
+          echo "$TARGETS" >> $GITHUB_STEP_SUMMARY
+    outputs:
+      all: ${{ steps.jsonStep.outputs.all }}
+      check: ${{ steps.jsonStep.outputs.check }}
+
+  version:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Get release version string
+        run: |
+          echo "long=$(./bin/buildinfo.py long)" >> $GITHUB_OUTPUT
+          echo "deb=$(./bin/buildinfo.py deb)" >> $GITHUB_OUTPUT
+        id: version
+        env:
+          BUILD_LOCATION: local
+    outputs:
+      long: ${{ steps.version.outputs.long }}
+      deb: ${{ steps.version.outputs.deb }}
+
+  build:
+    needs: [setup, version]
+    strategy:
+      fail-fast: false
+      matrix:
+        build: ${{ fromJson(needs.setup.outputs.all) }}
+    uses: ./.github/workflows/build_firmware.yml
+    with:
+      version: ${{ needs.version.outputs.long }}
+      pio_env: ${{ matrix.build.board }}
+      platform: ${{ matrix.build.platform }}
+      
