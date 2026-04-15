@@ -561,13 +561,21 @@ void NodeDB::installDefaultConfig(bool preserveKey = false)
     config.has_network = true;
     config.has_bluetooth = (HAS_BLUETOOTH ? true : false);
     config.has_security = true;
+#ifdef USERCONFIG_DEVICE_REBROADCAST_MODE
+    config.device.rebroadcast_mode = USERCONFIG_DEVICE_REBROADCAST_MODE;
+#else
     config.device.rebroadcast_mode = meshtastic_Config_DeviceConfig_RebroadcastMode_ALL;
+#endif
 
     config.lora.sx126x_rx_boosted_gain = true;
     config.lora.tx_enabled =
         true; // FIXME: maybe false in the future, and setting region to enable it. (unset region forces it off)
     config.lora.override_duty_cycle = false;
+#if USERPREFS_CONFIG_LORA_OK_TO_MQTT
+    config.lora.config_ok_to_mqtt = USERPREFS_CONFIG_LORA_OK_TO_MQTT;
+#else
     config.lora.config_ok_to_mqtt = false;
+#endif
 #if HAS_LORA_FEM
     config.lora.fem_lna_mode = meshtastic_Config_LoRaConfig_FEM_LNA_Mode_ENABLED;
 #else
@@ -605,7 +613,11 @@ void NodeDB::installDefaultConfig(bool preserveKey = false)
 #else
     config.lora.modem_preset = meshtastic_Config_LoRaConfig_ModemPreset_LONG_FAST;
 #endif
+#ifdef USERPREFS_CONFIG_LORA_HOP_LIMIT
+    config.lora.hop_limit = USERPREFS_CONFIG_LORA_HOP_LIMIT;
+#else
     config.lora.hop_limit = HOP_RELIABLE;
+#endif
 #ifdef USERPREFS_CONFIG_LORA_IGNORE_MQTT
     config.lora.ignore_mqtt = USERPREFS_CONFIG_LORA_IGNORE_MQTT;
 #else
@@ -1116,7 +1128,11 @@ void NodeDB::installDefaultDeviceState()
     snprintf(owner.id, sizeof(owner.id), "!%08x", getNodeNum()); // Default node ID now based on nodenum
     memcpy(owner.macaddr, ourMacAddr, sizeof(owner.macaddr));
     owner.has_is_unmessagable = true;
+#if USERPREFS_CONFIG_OWNER_IS_UNMESSAGEABLE
+    owner.is_unmessagable = USERPREFS_CONFIG_OWNER_IS_UNMESSAGEABLE;
+#else
     owner.is_unmessagable = false;
+#endif
 }
 
 // We reserve a few nodenums for future use
